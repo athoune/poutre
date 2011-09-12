@@ -1,0 +1,3 @@
+module Poutre
+
+end
