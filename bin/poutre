@@ -35,5 +35,6 @@ EM.run do
     puts ""
     puts m.to_csv.string
     puts "#{m.length} requests"
+    puts "#{m.length / (duration * 60)} query/seconds"
   end
 end
