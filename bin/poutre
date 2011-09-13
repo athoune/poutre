@@ -7,6 +7,7 @@ require "optparse"
 
 concurrency = 20
 duration = 0.5
+wait = 0
 
 optparse = OptionParser.new do |opts|
   opts.on('-c', '--concurrent C', Float, "Concurrents users") do |c|
@@ -15,15 +16,21 @@ optparse = OptionParser.new do |opts|
   opts.on('-d', '--duration D', Float, "Duration of the bench") do |d|
     duration = d
   end
+  opts.on('-w', '--wait W', Float, "Wait time") do |w|
+    wait = w
+  end
 end.parse!
 
 url = ARGV[0]
 puts "#{concurrency} clients during #{duration * 60} seconds will stress #{url}."
 
+$errors = 0
+
 class InfinitFetch
 
   def initialize url, wait=0
     @url = url
+    @wait = wait
     @cpt = 0
     @running = true
   end
@@ -32,12 +39,17 @@ class InfinitFetch
     @cpt += 1
     @http = EventMachine::HttpRequest.new(@url).get
     @http.errback do
+      $errors += 1
       print "#"
-      self.fetch if @running
+      EM.add_timer(@wait) do
+        self.fetch if @running
+      end
     end
     @http.callback do
       print "." if @cpt % 10 == 1
-      self.fetch
+      EM.add_timer(@wait) do
+        self.fetch
+      end
     end
     self
   end
@@ -55,7 +67,7 @@ EM::HttpRequest.use EventMachine::Middleware::Metrics, m
 EM.run do
   fetchers = []
   concurrency.to_i.times do
-    fetchers << InfinitFetch.new(url).fetch
+    fetchers << InfinitFetch.new(url, wait).fetch
   end
   EM.add_timer(duration * 60) do
     fetchers.each do |fetcher|
@@ -65,6 +77,7 @@ EM.run do
     puts ""
     puts m.to_csv.string
     puts "#{m.length} requests"
+    puts "#{$errors} errors"
     puts "#{m.length / (duration * 60)} query/seconds"
   end
 end
