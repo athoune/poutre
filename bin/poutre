@@ -3,10 +3,22 @@
 require "em-http-request"
 require "em-http-metrics"
 require "em-http-metrics/csv"
+require "optparse"
 
-url = ARGV[0]
 concurrency = 20
 duration = 0.5
+
+optparse = OptionParser.new do |opts|
+  opts.on('-c', '--concurrent C', Float, "Concurrents users") do |c|
+    concurrency = c
+  end
+  opts.on('-d', '--duration D', Float, "Duration of the bench") do |d|
+    duration = d
+  end
+end.parse!
+
+url = ARGV[0]
+puts "#{concurrency} clients during #{duration * 60} seconds will stress #{url}."
 
 $run = true
 def infinite_fetch url, wait=0
@@ -26,7 +38,7 @@ m = Metrics::Metrics.new
 EM::HttpRequest.use EventMachine::Middleware::Metrics, m
 
 EM.run do
-  concurrency.times do
+  concurrency.to_i.times do
     infinite_fetch url
   end
   EM.add_timer(duration * 60) do
