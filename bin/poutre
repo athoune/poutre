@@ -20,29 +20,47 @@ end.parse!
 url = ARGV[0]
 puts "#{concurrency} clients during #{duration * 60} seconds will stress #{url}."
 
-$run = true
-def infinite_fetch url, wait=0
-  conn = EventMachine::HttpRequest.new url
-  http = conn.get
-  http.errback do
-    print "#"
-    infinite_fetch url, wait if $run
+class InfinitFetch
+
+  def initialize url, wait=0
+    @url = url
+    @cpt = 0
+    @running = true
   end
-  http.callback do
-    print "."
-    infinite_fetch url, wait
+
+  def fetch
+    @cpt += 1
+    @http = EventMachine::HttpRequest.new(@url).get
+    @http.errback do
+      print "#"
+      self.fetch if @running
+    end
+    @http.callback do
+      print "." if @cpt % 10 == 1
+      self.fetch
+    end
+    self
   end
+
+  def close
+    @running = false
+    @http.close
+  end
+
 end
 
 m = Metrics::Metrics.new
 EM::HttpRequest.use EventMachine::Middleware::Metrics, m
 
 EM.run do
+  fetchers = []
   concurrency.to_i.times do
-    infinite_fetch url
+    fetchers << InfinitFetch.new(url).fetch
   end
   EM.add_timer(duration * 60) do
-    $run = false
+    fetchers.each do |fetcher|
+      fetcher.close
+    end
     EM.stop
     puts ""
     puts m.to_csv.string
