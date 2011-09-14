@@ -46,7 +46,7 @@ class InfinitFetch
       end
     end
     @http.callback do
-      print "." if @cpt % 10 == 1
+      print "." if @cpt % 100 == 1
       EM.add_timer(@wait) do
         self.fetch
       end
