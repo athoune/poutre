@@ -37,8 +37,8 @@ class InfinitFetch
 
   def fetch
     @cpt += 1
-    @http = EventMachine::HttpRequest.new(@url).get
-    @http.errback do
+    @http = EventMachine::HttpRequest.new(@url, :connect_timeout => 30, :inactivity_timeout => 60, :redirects => 1).get
+    @http.errback do |http|
       $errors += 1
       print "#"
       EM.add_timer(@wait) do
