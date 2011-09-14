@@ -67,7 +67,9 @@ EM::HttpRequest.use EventMachine::Middleware::Metrics, m
 EM.run do
   fetchers = []
   concurrency.to_i.times do
-    fetchers << InfinitFetch.new(url, wait).fetch
+    EM.add_timer(Random.rand(wait)) do
+      fetchers << InfinitFetch.new(url, wait).fetch
+    end
   end
   EM.add_timer(duration * 60) do
     fetchers.each do |fetcher|
