@@ -62,26 +62,30 @@ class InfinitFetch
 end
 
 m = Metrics::Metrics.new
-EM::HttpRequest.use EventMachine::Middleware::Metrics, m
+(1..4).each do |frk|
+  fork do
+    EM::HttpRequest.use EventMachine::Middleware::Metrics, m
 
-EM.run do
-  fetchers = []
-  concurrency.to_i.times do
-    EM.add_timer(Random.rand(wait)) do
-      fetchers << InfinitFetch.new(url, wait).fetch
+    EM.run do
+      fetchers = []
+      concurrency.to_i.times do
+        EM.add_timer(Random.rand(wait)) do
+          fetchers << InfinitFetch.new(url, wait).fetch
+        end
+      end
+      EM.add_timer(duration * 60) do
+        fetchers.each do |fetcher|
+          fetcher.close
+        end
+        EM.stop
+        puts ""
+        File.open("poutre_#{frk}.csv", 'w') do |f|
+          f.puts m.to_csv.string
+        end
+        puts "#{m.length} requests"
+        puts "#{$errors} errors"
+        puts "#{m.length / (duration * 60)} query/seconds"
+      end
     end
-  end
-  EM.add_timer(duration * 60) do
-    fetchers.each do |fetcher|
-      fetcher.close
-    end
-    EM.stop
-    puts ""
-    File.open('poutre.csv', 'w') do |f|
-        f.puts m.to_csv.string
-    end
-    puts "#{m.length} requests"
-    puts "#{$errors} errors"
-    puts "#{m.length / (duration * 60)} query/seconds"
   end
 end
