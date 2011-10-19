@@ -5,6 +5,8 @@ require "em-http-metrics"
 require "em-http-metrics/csv"
 require "optparse"
 
+require "poutre/lumberjack"
+
 concurrency = 20
 duration = 0.5
 wait = 0
@@ -24,43 +26,6 @@ end.parse!
 url = ARGV[0]
 puts "#{concurrency} clients during #{duration * 60} seconds will stress #{url}."
 
-$errors = 0
-
-class InfinitFetch
-
-  def initialize url, wait=0
-    @url = url
-    @wait = wait
-    @cpt = 0
-    @running = true
-  end
-
-  def fetch
-    @cpt += 1
-    @http = EventMachine::HttpRequest.new(@url, :connect_timeout => 30, :inactivity_timeout => 60, :redirects => 1).get
-    @http.errback do |http|
-      $errors += 1
-      print "#"
-      EM.add_timer(@wait) do
-        self.fetch if @running
-      end
-    end
-    @http.callback do
-      print "." if @cpt % 100 == 1
-      EM.add_timer(@wait) do
-        self.fetch
-      end
-    end
-    self
-  end
-
-  def close
-    @running = false
-    @http.close
-  end
-
-end
-
 m = Metrics::Metrics.new
 EM::HttpRequest.use EventMachine::Middleware::Metrics, m
 
@@ -68,7 +33,7 @@ EM.run do
   fetchers = []
   concurrency.to_i.times do
     EM.add_timer(Random.rand(wait)) do
-      fetchers << InfinitFetch.new(url, wait).fetch
+      fetchers << LumberJack.new(url, wait).fetch
     end
   end
   EM.add_timer(duration * 60) do
